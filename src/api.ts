@@ -78,9 +78,9 @@ export function voidSale(saleId: number) {
   return request(`/sales/${saleId}`, { method: 'DELETE' });
 }
 
-export function deleteProduct(productId: number) {
-  return request(`/products/${productId}`, { method: 'DELETE' });
-}
+// export function deleteProduct(productId: number) {
+//   return request(`/products/${productId}`, { method: 'DELETE' });
+// }
 
 export function getStaffList() {
   return request('/staff');
