@@ -117,17 +117,17 @@ useEffect(() => {
   return () => clearTimeout(timeout);
 }, [searchQuery, isOnline]);
 
-function addProductToCart(product: any) {
-  setCart((prev) => {
-    const existing = prev.find((i) => i.product_id === product.product_id);
-    if (existing) {
-      return prev.map((i) => i.product_id === product.product_id ? { ...i, qty: i.qty + 1 } : i);
-    }
-    return [...prev, { product_id: product.product_id, name: product.name, price: Number(product.price), qty: 1 }];
-  });
-  setSearchQuery('');
-  setSearchResults([]);
-}
+// function addProductToCart(product: any) {
+//   setCart((prev) => {
+//     const existing = prev.find((i) => i.product_id === product.product_id);
+//     if (existing) {
+//       return prev.map((i) => i.product_id === product.product_id ? { ...i, qty: i.qty + 1 } : i);
+//     }
+//     return [...prev, { product_id: product.product_id, name: product.name, price: Number(product.price), qty: 1 }];
+//   });
+//   setSearchQuery('');
+//   setSearchResults([]);
+// }
 
   function selectMood(index: number) {
     setPickedIndex(index);
