@@ -1,5 +1,6 @@
-const BASE_URL = 'http://127.0.0.1:8000/api';
+// const BASE_URL = 'http://127.0.0.1:8000/api';
 
+const BASE_URL = 'https://pos-system-xxxx.onrender.com/api';
 function getToken() {
   return localStorage.getItem('pos_token');
 }
