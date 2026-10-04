@@ -7,21 +7,46 @@ function getToken() {
   return localStorage.getItem('pos_token');
 }
 
+// async function request(path: string, options: RequestInit = {}) {
+//   const res = await fetch(`${BASE_URL}${path}`, {
+//     ...options,
+//     headers: {
+//       'Content-Type': 'application/json',
+//       Accept: 'application/json',
+//       ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+//       ...(options.headers || {}),
+//     },
+//   });
+
+//   if (!res.ok) {
+//     const body = await res.json().catch(() => ({}));
+//     const error: any = new Error(body.message || `Request failed (${res.status})`);
+//     error.status = res.status; // NEW: so callers can tell 404 apart from other errors
+//     throw error;
+//   }
+
+//   return res.json();
+// }
+
 async function request(path: string, options: RequestInit = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      ...(path !== '/login' && getToken()
+        ? { Authorization: `Bearer ${getToken()}` }
+        : {}),
       ...(options.headers || {}),
     },
   });
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    const error: any = new Error(body.message || `Request failed (${res.status})`);
-    error.status = res.status; // NEW: so callers can tell 404 apart from other errors
+    const error: any = new Error(
+      body.message || `Request failed (${res.status})`
+    );
+    error.status = res.status;
     throw error;
   }
 
