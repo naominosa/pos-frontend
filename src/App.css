@@ -234,3 +234,10 @@ body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Inter', san
 .assistant-input-row{ display:flex; gap:8px; padding:10px; border-top:1px solid var(--line); }
 .assistant-input{ flex:1; padding:10px 12px; border-radius:10px; border:1.5px solid var(--line); font-size:13.5px; }
 .assistant-send{ width:38px; border-radius:10px; border:none; background:var(--accent); color:white; cursor:pointer; }
+
+
+.primary-btn:disabled{ opacity:.6; cursor:wait; }
+.login-note{
+  background:var(--select-soft); color:var(--ink); font-size:13px;
+  padding:10px 12px; border-radius:10px; margin:0 0 10px;
+}

@@ -147,3 +147,7 @@ export function requestDeleteOtp(productId: number) {
 export function deleteProduct(productId: number, otp: string) {
   return request(`/products/${productId}`, { method: 'DELETE', body: JSON.stringify({ otp }) });
 }
+
+export function wakeServer() {
+  fetch(BASE_URL.replace(/\/api$/, '') + '/up', { mode: 'no-cors' }).catch(() => {});
+}

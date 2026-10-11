@@ -9,10 +9,11 @@ import EndOfDay from './EndOfDay';
 import Assistant from './components/Assistant';
 import { cacheProducts, getCachedProducts, updateCachedProductStock, queueSale, getPendingSales, removePendingSale, } from './offline';
 import type { PendingSale } from './offline';
-import { getAllProducts } from './api';
+// import { getAllProducts } from './api';
+import { getAllProducts, wakeServer } from './api';
 import { login, getProductByBarcode, createSale, saveToken, addProduct, lookupExternalProduct, clearToken ,searchProducts } from './api';
 import './App.css';
-
+// import { getAllProducts } from './api';
 type CartItem = { product_id: number; name: string; price: number; qty: number; };
 
 const MOODS = [
@@ -60,6 +61,10 @@ const [searchResults, setSearchResults] = useState<any[]>([]);
 const [isOnline, setIsOnline] = useState(navigator.onLine);
 const [pendingCount, setPendingCount] = useState(getPendingSales().length);
 
+
+const [loggingIn, setLoggingIn] = useState(false);
+const [slowLogin, setSlowLogin] = useState(false);
+
   const [unknownBarcode, setUnknownBarcode] = useState<string | null>(null);
   const [quickName, setQuickName] = useState('');
   const [quickPrice, setQuickPrice] = useState('');
@@ -76,18 +81,25 @@ const [pendingCount, setPendingCount] = useState(getPendingSales().length);
   const [tab, setTab] = useState<'checkout' | 'inventory' | 'manager' | 'eod'>('checkout');
 
   async function handleLogin() {
-    setLoginError('');
-    try {
-      const data = await login(email, password);
-      saveToken(data.token);
-      setStaffId(data.staff.staff_id);
-      setStaffName(data.staff.name);
-      setRole(data.staff.role);
-      setScreen('mood');
-    } catch (err: any) {
-      setLoginError(err.message || 'Login failed');
-    }
+  if (loggingIn) return;
+  setLoginError('');
+  setLoggingIn(true);
+  const slowTimer = setTimeout(() => setSlowLogin(true), 4000);
+  try {
+    const data = await login(email, password);
+    saveToken(data.token);
+    setStaffId(data.staff.staff_id);
+    setStaffName(data.staff.name);
+    setRole(data.staff.role);
+    setScreen('mood');
+  } catch (err: any) {
+    setLoginError(err.message || 'Login failed');
+  } finally {
+    clearTimeout(slowTimer);
+    setSlowLogin(false);
+    setLoggingIn(false);
   }
+}
 
   function handleLogout() {
   clearToken();
@@ -102,6 +114,9 @@ const [pendingCount, setPendingCount] = useState(getPendingSales().length);
   setPayment(null);
   setTab('checkout');
 }
+
+useEffect(() => { wakeServer(); }, []);
+
 useEffect(() => {
   if (!searchQuery.trim()) { setSearchResults([]); return; }
   if (!isOnline) {
@@ -316,10 +331,22 @@ useEffect(() => {
         <div className="auth-card">
           <h1>{timeGreeting()}</h1>
           <p style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 22 }}>Sign in to start your shift</p>
-          <div className="field"><label>Email</label><input value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-          <div className="field"><label>Password</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
+                   <div className="field">
+            <label>Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+            />
+          </div>
           {loginError && <p className="error-text">{loginError}</p>}
-          <button className="primary-btn" onClick={handleLogin}>Sign in</button>
+          {slowLogin && (
+            <p className="login-note">☕ Waking up the server. The first sign in can take up to a minute. Please wait.</p>
+          )}
+          <button className="primary-btn" onClick={handleLogin} disabled={loggingIn}>
+            {loggingIn ? 'Signing in...' : 'Sign in'}
+          </button>
         </div>
       </div>
     );
