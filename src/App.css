@@ -241,3 +241,7 @@ body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Inter', san
   background:var(--select-soft); color:var(--ink); font-size:13px;
   padding:10px 12px; border-radius:10px; margin:0 0 10px;
 }
+
+
+.login-note{ text-align:left; line-height:1.45; }
+.login-note.ok{ background:var(--mint-soft); color:#0b6b52; }

@@ -63,7 +63,10 @@ const [pendingCount, setPendingCount] = useState(getPendingSales().length);
 
 
 const [loggingIn, setLoggingIn] = useState(false);
-const [slowLogin, setSlowLogin] = useState(false);
+const [serverReady, setServerReady] = useState(false);
+const [wakeSecs, setWakeSecs] = useState(0);
+const [loginSecs, setLoginSecs] = useState(0);
+const [retrying, setRetrying] = useState(false);
 
   const [unknownBarcode, setUnknownBarcode] = useState<string | null>(null);
   const [quickName, setQuickName] = useState('');
@@ -84,19 +87,38 @@ const [slowLogin, setSlowLogin] = useState(false);
   if (loggingIn) return;
   setLoginError('');
   setLoggingIn(true);
-  const slowTimer = setTimeout(() => setSlowLogin(true), 4000);
+  setRetrying(false);
+
+  const MAX_TRIES = 3;
   try {
-    const data = await login(email, password);
-    saveToken(data.token);
-    setStaffId(data.staff.staff_id);
-    setStaffName(data.staff.name);
-    setRole(data.staff.role);
-    setScreen('mood');
-  } catch (err: any) {
-    setLoginError(err.message || 'Login failed');
+    for (let attempt = 1; attempt <= MAX_TRIES; attempt++) {
+      try {
+        const data = await login(email, password);
+        saveToken(data.token);
+        setStaffId(data.staff.staff_id);
+        setStaffName(data.staff.name);
+        setRole(data.staff.role);
+        setServerReady(true);
+        setScreen('mood');
+        return;
+      } catch (err: any) {
+        // Only retry when the server wasn't reachable yet (not for wrong password)
+        const serverNotReady = !err.status || [502, 503, 504].includes(err.status);
+        if (serverNotReady && attempt < MAX_TRIES) {
+          setRetrying(true);
+          await new Promise((r) => setTimeout(r, 4000));
+          continue;
+        }
+        setLoginError(
+          serverNotReady
+            ? 'Could not reach the server. Please check your connection and try again.'
+            : err.message || 'Login failed'
+        );
+        return;
+      }
+    }
   } finally {
-    clearTimeout(slowTimer);
-    setSlowLogin(false);
+    setRetrying(false);
     setLoggingIn(false);
   }
 }
@@ -115,7 +137,35 @@ const [slowLogin, setSlowLogin] = useState(false);
   setTab('checkout');
 }
 
-useEffect(() => { wakeServer(); }, []);
+// Wake the server as soon as the page opens
+useEffect(() => {
+  Promise.resolve(wakeServer())
+    .catch(() => {})
+    .finally(() => setServerReady(true));
+}, []);
+
+// Count seconds while the server is waking (login screen)
+useEffect(() => {
+  if (serverReady) return;
+  const t = setInterval(() => setWakeSecs((s) => s + 1), 1000);
+  return () => clearInterval(t);
+}, [serverReady]);
+
+// Count seconds while a login is in progress
+useEffect(() => {
+  if (!loggingIn) { setLoginSecs(0); return; }
+  const t = setInterval(() => setLoginSecs((s) => s + 1), 1000);
+  return () => clearInterval(t);
+}, [loggingIn]);
+
+// Keep the server awake while someone is signed in
+useEffect(() => {
+  if (screen === 'login') return;
+  const t = setInterval(() => { Promise.resolve(wakeServer()).catch(() => {}); }, 10 * 60 * 1000);
+  return () => clearInterval(t);
+}, [screen]);
+
+
 
 useEffect(() => {
   if (!searchQuery.trim()) { setSearchResults([]); return; }
@@ -325,32 +375,62 @@ useEffect(() => {
 }
 
   if (screen === 'login') {
-    return (
-      <div className="center-screen">
-        <div className="blob-field"><div className="blob b1" /><div className="blob b2" /><div className="blob b3" /></div>
-        <div className="auth-card">
-          <h1>{timeGreeting()}</h1>
-          <p style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 22 }}>Sign in to start your shift</p>
-                   <div className="field">
-            <label>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-            />
-          </div>
-          {loginError && <p className="error-text">{loginError}</p>}
-          {slowLogin && (
-            <p className="login-note">☕ Waking up the server. The first sign in can take up to a minute. Please wait.</p>
-          )}
-          <button className="primary-btn" onClick={handleLogin} disabled={loggingIn}>
-            {loggingIn ? 'Signing in...' : 'Sign in'}
-          </button>
-        </div>
-      </div>
-    );
+  let note: { text: string; kind: 'wait' | 'ok' } | null = null;
+
+  if (loggingIn) {
+    if (retrying) {
+      note = { kind: 'wait', text: `🔄 Server is still starting up. Trying again automatically… (${loginSecs}s)` };
+    } else if (loginSecs < 3) {
+      note = { kind: 'wait', text: '🔐 Signing you in…' };
+    } else if (loginSecs < 15) {
+      note = { kind: 'wait', text: `☕ Hold on, the server is waking up. This can take up to a minute. (${loginSecs}s)` };
+    } else if (loginSecs < 40) {
+      note = { kind: 'wait', text: `⏳ Still waking up. The server sleeps when it's not used, so the first sign in is slow. Please don't close this page. (${loginSecs}s)` };
+    } else {
+      note = { kind: 'wait', text: `🙏 Almost there, thanks for your patience. (${loginSecs}s)` };
+    }
+  } else if (!serverReady) {
+    note = { kind: 'wait', text: `☕ Waking up the server… you can sign in now, it just may take a moment. (${wakeSecs}s)` };
+  } else {
+    note = { kind: 'ok', text: '✅ Server is ready' };
   }
+
+  return (
+    <div className="center-screen">
+      <div className="blob-field"><div className="blob b1" /><div className="blob b2" /><div className="blob b3" /></div>
+      <div className="auth-card">
+        <h1>{timeGreeting()}</h1>
+        <p style={{ color: 'var(--muted)', fontSize: 13.5, marginBottom: 22 }}>Sign in to start your shift</p>
+
+        <div className="field">
+          <label>Email</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+          />
+        </div>
+        <div className="field">
+          <label>Password</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+          />
+        </div>
+
+        {loginError && <p className="error-text">{loginError}</p>}
+        {note && <p className={`login-note ${note.kind === 'ok' ? 'ok' : ''}`}>{note.text}</p>}
+
+        <button className="primary-btn" onClick={handleLogin} disabled={loggingIn}>
+          {loggingIn ? 'Signing in…' : 'Sign in'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
   if (screen === 'mood') {
     return (
