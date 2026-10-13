@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getAllProducts, addProduct, deleteProduct, requestDeleteOtp } from './api';
+import { getAllProducts, addProduct, deleteProduct } from './api';
 
 type Product = {
   product_id: number;
@@ -28,11 +28,6 @@ export default function Inventory({ role }: { role: string }) {
   const [qty, setQty] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
-  const [otpProductId, setOtpProductId] = useState<number | null>(null);
-  const [otpProductName, setOtpProductName] = useState('');
-  const [otpValue, setOtpValue] = useState('');
-  const [otpError, setOtpError] = useState('');
 
   async function load() {
     try {
@@ -70,25 +65,13 @@ export default function Inventory({ role }: { role: string }) {
   }
 
   async function startDelete(id: number, productName: string) {
+    if (!confirm(`Remove "${productName}"? This cannot be undone.`)) return;
     try {
-      await requestDeleteOtp(id);
-      setOtpProductId(id);
-      setOtpProductName(productName);
-      setOtpValue('');
-      setOtpError('');
-    } catch (err: any) {
-      setError(err.message || 'Could not send the code.');
-    }
-  }
-
-  async function confirmDelete() {
-    if (!otpProductId) return;
-    try {
-      await deleteProduct(otpProductId, otpValue);
-      setOtpProductId(null);
+      await deleteProduct(id);
+      setSuccess(`${productName} was removed.`);
       load();
     } catch (err: any) {
-      setOtpError(err.message || 'Could not delete this product.');
+      setError(err.message || 'Could not remove this product.');
     }
   }
 
@@ -148,25 +131,6 @@ export default function Inventory({ role }: { role: string }) {
         {products.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>No products yet.</div>}
       </div>
 
-      {otpProductId && (
-        <div className="success-overlay">
-          <div className="success-card" style={{ textAlign: 'left', width: 300 }}>
-            <h3 style={{ marginBottom: 4 }}>Confirm deletion</h3>
-            <p style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 16 }}>
-              A code was sent to your email to confirm removing <b>{otpProductName}</b>.
-            </p>
-            <input placeholder="Enter code" value={otpValue} onChange={(e) => setOtpValue(e.target.value)} style={inputStyle} />
-            {otpError && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 8 }}>{otpError}</p>}
-            <button onClick={confirmDelete} style={primaryBtn}>Confirm delete</button>
-            <button
-              onClick={() => setOtpProductId(null)}
-              style={{ width: '100%', marginTop: 8, padding: 10, background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer' }}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

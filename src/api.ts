@@ -1,5 +1,3 @@
-
-
 const BASE_URL = 'https://pos-system-d2d0.onrender.com/api';
 function getToken() {
   return localStorage.getItem('pos_token');
@@ -144,8 +142,8 @@ export function askAssistant(message: string) {
 export function requestDeleteOtp(productId: number) {
   return request(`/products/${productId}/request-delete-otp`, { method: 'POST' });
 }
-export function deleteProduct(productId: number, otp: string) {
-  return request(`/products/${productId}`, { method: 'DELETE', body: JSON.stringify({ otp }) });
+export function deleteProduct(productId: number) {
+  return request(`/products/${productId}`, { method: 'DELETE' });
 }
 
 export function wakeServer() {
