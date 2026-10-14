@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getSalesByDate, voidSale, getStaffList, createStaff,getEodReports } from './api';
+import { getSalesByDate, voidSale, getStaffList, createStaff, getEodReports, sendFinalReport } from './api';
 
 type SaleRow = {
   sale_id: number;
@@ -36,7 +36,12 @@ export default function ManagerDashboard() {
   const [newRole, setNewRole] = useState<'cashier' | 'manager'>('cashier');
   const [staffError, setStaffError] = useState('');
   const [staffSuccess, setStaffSuccess] = useState('');
+
   const [eodReports, setEodReports] = useState<any[]>([]);
+  const [finalNote, setFinalNote] = useState('');
+  const [finalMsg, setFinalMsg] = useState('');
+  const [finalError, setFinalError] = useState('');
+  const [sendingFinal, setSendingFinal] = useState(false);
 
   async function load(d: string) {
     setError('');
@@ -58,9 +63,11 @@ export default function ManagerDashboard() {
     }
   }
 
-  // useEffect(() => { load(date); loadStaff(); }, [date]);
-
-  useEffect(() => { load(date); loadStaff(); getEodReports(date).then(setEodReports).catch(() => {}); }, [date]);
+  useEffect(() => {
+    load(date);
+    loadStaff();
+    getEodReports(date).then(setEodReports).catch(() => {});
+  }, [date]);
 
   async function handleVoid(saleId: number) {
     if (!confirm('Void this sale? This cannot be undone.')) return;
@@ -85,6 +92,19 @@ export default function ManagerDashboard() {
       loadStaff();
     } catch (err: any) {
       setStaffError(err.message || 'Could not add this employee.');
+    }
+  }
+
+  async function handleSendFinal() {
+    setFinalMsg(''); setFinalError(''); setSendingFinal(true);
+    try {
+      const data = await sendFinalReport(date, finalNote);
+      setFinalMsg(data.message || 'Final report sent to the owner.');
+      setFinalNote('');
+    } catch (err: any) {
+      setFinalError(err.message || 'Could not send the final report.');
+    } finally {
+      setSendingFinal(false);
     }
   }
 
@@ -139,6 +159,51 @@ export default function ManagerDashboard() {
       </div>
 
       <div style={{ marginTop: 32 }}>
+        <h2 style={{ fontSize: 18, color: 'var(--ink)', marginBottom: 14 }}>🌙 End of day reports</h2>
+
+        <div style={tableCard}>
+          <div style={{ ...rowStyle, background: 'var(--bg)', fontWeight: 600, fontSize: 12.5, color: 'var(--muted)' }}>
+            <span style={{ flex: 1.2 }}>Staff</span>
+            <span style={{ flex: 1 }}>Sales</span>
+            <span style={{ flex: 0.8 }}>Sales made</span>
+            <span style={{ flex: 0.8 }}>Satisfied</span>
+            <span style={{ flex: 2 }}>Notes</span>
+          </div>
+          {eodReports.map((r: any) => (
+            <div key={r.eod_id} style={rowStyle}>
+              <span style={{ flex: 1.2, fontWeight: 600, color: 'var(--ink)' }}>{r.staff?.name} ({r.role})</span>
+              <span style={{ flex: 1, color: 'var(--ink)' }}>₦{Number(r.total_sales).toLocaleString()}</span>
+              <span style={{ flex: 0.8, color: 'var(--ink)' }}>{r.total_transactions}</span>
+              <span style={{ flex: 0.8, color: 'var(--ink)' }}>{r.satisfied_customers ?? '—'}</span>
+              <span style={{ flex: 2, color: 'var(--muted)', fontSize: 13 }}>{r.notes || '—'}</span>
+            </div>
+          ))}
+          {eodReports.length === 0 && (
+            <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>No shift reports for this day yet.</div>
+          )}
+        </div>
+
+        <div style={{ ...formCard, marginTop: 16 }}>
+          <h3 style={{ margin: '0 0 6px', fontSize: 14.5, color: 'var(--ink)' }}>📧 Send final report to the owner</h3>
+          <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--muted)' }}>
+            This sends all the shift reports above, plus the day's totals, in one email.
+          </p>
+          <textarea
+            value={finalNote}
+            onChange={(e) => setFinalNote(e.target.value)}
+            placeholder="Your note for the owner..."
+            rows={3}
+            style={{ ...inputStyle, width: '100%', fontFamily: 'inherit' }}
+          />
+          {finalError && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 10 }}>{finalError}</p>}
+          {finalMsg && <p style={{ color: 'var(--mint)', fontSize: 13, marginTop: 10 }}>✓ {finalMsg}</p>}
+          <button onClick={handleSendFinal} disabled={sendingFinal} style={primaryBtn}>
+            {sendingFinal ? 'Sending...' : 'Send final report to owner'}
+          </button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 32 }}>
         <h2 style={{ fontSize: 18, color: 'var(--ink)', marginBottom: 14 }}>👥 Team</h2>
 
         <div style={formCard}>
@@ -172,29 +237,6 @@ export default function ManagerDashboard() {
           ))}
           {staffList.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>No team members yet.</div>}
         </div>
-
-        <div style={{ marginTop: 32 }}>
-  <h2 style={{ fontSize: 18, color: 'var(--ink)', marginBottom: 14 }}>🌙 End of day reports</h2>
-  <div style={tableCard}>
-    <div style={{ ...rowStyle, background: 'var(--bg)', fontWeight: 600, fontSize: 12.5, color: 'var(--muted)' }}>
-      <span style={{ flex: 1.2 }}>Staff</span>
-      <span style={{ flex: 1 }}>Sales</span>
-      <span style={{ flex: 0.8 }}>Sales made</span>
-      <span style={{ flex: 0.8 }}>Satisfied</span>
-      <span style={{ flex: 2 }}>Notes</span>
-    </div>
-    {eodReports.map((r: any) => (
-      <div key={r.eod_id} style={rowStyle}>
-        <span style={{ flex: 1.2, fontWeight: 600, color: 'var(--ink)' }}>{r.staff?.name} ({r.role})</span>
-        <span style={{ flex: 1, color: 'var(--ink)' }}>₦{Number(r.total_sales).toLocaleString()}</span>
-        <span style={{ flex: 0.8, color: 'var(--ink)' }}>{r.total_transactions}</span>
-        <span style={{ flex: 0.8, color: 'var(--ink)' }}>{r.satisfied_customers ?? '—'}</span>
-        <span style={{ flex: 2, color: 'var(--muted)', fontSize: 13 }}>{r.notes || '—'}</span>
-      </div>
-    ))}
-    {eodReports.length === 0 && <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>No reports submitted for this day yet.</div>}
-  </div>
-</div>
       </div>
     </div>
   );

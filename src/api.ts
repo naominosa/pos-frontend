@@ -149,3 +149,7 @@ export function deleteProduct(productId: number) {
 export function wakeServer() {
   fetch(BASE_URL.replace(/\/api$/, '') + '/up', { mode: 'no-cors' }).catch(() => {});
 }
+
+export function sendFinalReport(date: string, note: string) {
+  return request('/eod/send-final', { method: 'POST', body: JSON.stringify({ date, note }) });
+}
